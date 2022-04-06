@@ -5,6 +5,12 @@
 #include <nlohmann/json.hpp>
 #include "base64.h"
 
+/**
+ * There appears to be a bug in the arm version of the nlohmann json library.
+ * We have thus changed all on-device apis to use get methods only.
+ */
+#define UPSTREAM_USES_JSON 0
+
 using namespace std;
 using namespace restbed;
 using json = nlohmann::json;
@@ -71,7 +77,6 @@ void forward_gpio_get(const shared_ptr< Session > session)
     if (!request->has_query_parameter("device"))
     {
         session->close(400, "You must specify a device.");
-        session->erase();
         return;
     }
 
@@ -88,7 +93,6 @@ void forward_gpio_get(const shared_ptr< Session > session)
             if (req.defaultVal.empty())
             {
                 session->close(400, "Please specify \"" + req.name + "\"");
-                session->erase();
                 return;
             }
             if (req.defaultVal != "EMPTY")
@@ -110,7 +114,6 @@ void forward_gpio_get(const shared_ptr< Session > session)
     cpr::Response upstreamResponse = cpr::Get(cpr::Url{upstreamUrl});
 
     session->close(upstreamResponse.status_code, upstreamResponse.text);
-    session->erase();
 }
 
 void forward_gpio_post(const shared_ptr< Session > session)
@@ -137,7 +140,7 @@ void forward_gpio_post(const shared_ptr< Session > session)
         {
             fprintf(stdout, "Could not parse:\n%.*s\n", (int) l_body.size(), l_body.data());
             l_session->close(400, "Could not parse request. Please submit request as valid json.");
-            l_session->erase();
+            delete[] requestJson;
             return;
         }
         delete[] requestJson;
@@ -149,10 +152,10 @@ void forward_gpio_post(const shared_ptr< Session > session)
         if (!requestData.contains("device"))
         {
             l_session->close(400, "You must specify a device.");
-            l_session->erase();
             return;
         }
 
+#if UPSTREAM_USES_JSON
         json upstreamRequestBody;
         for (const auto& req : requiredParameters)
         {
@@ -161,7 +164,6 @@ void forward_gpio_post(const shared_ptr< Session > session)
                 if(req.defaultVal.empty())
                 {
                     l_session->close(400, "Please specify \"" + req.name + "\"");
-                    l_session->erase();
                     return;
                 }
                 if (req.defaultVal == "EMPTY")
@@ -179,21 +181,51 @@ void forward_gpio_post(const shared_ptr< Session > session)
             }
             fprintf(stdout, "%s (%s): %s\n", req.upstreamKey.c_str(), req.name.c_str(), upstreamRequestBody[req.upstreamKey].get<string>().c_str());
         }
-
+        
         string upstreamUrl = GetUrlFromName(requestData["device"]) + "/v1/gpio/set";
+
+#else
+        string upstreamQuery = "/v1/gpio/set?";
+        static const string separator = "&";
+        for (const auto& req : requiredParameters)
+        {
+            if (!requestData.contains(req.name))
+            {
+                if (req.defaultVal.empty())
+                {
+                    l_session->close(400, "Please specify \"" + req.name + "\"");
+                    return;
+                }
+                if (req.defaultVal != "EMPTY")
+                {
+                    upstreamQuery += req.upstreamKey + "=" + req.defaultVal + separator;
+                }
+            }
+            else
+            {
+                string value = requestData[req.name];
+                upstreamQuery += req.upstreamKey + "=" + value + separator;
+            }
+        }
+        upstreamQuery.erase(upstreamQuery.size()-separator.size(), upstreamQuery.size());
+
+        string upstreamUrl = GetUrlFromName(requestData["device"]) + upstreamQuery;
+#endif  
 
         fprintf(stdout, "Will forward request to %s\n", upstreamUrl.c_str());
 
-
+#if UPSTREAM_USES_JSON
         cpr::Response upstreamResponse = cpr::Post(
                 cpr::Url(upstreamUrl),
                 cpr::Body(upstreamRequestBody.dump()),
                 cpr::Header{{"Content-Type", "application/json"}});
+#else
+        cpr::Response upstreamResponse = cpr::Get(cpr::Url(upstreamUrl));
+#endif
 
         fprintf(stdout, "Got %ld:\n%s\n", upstreamResponse.status_code, upstreamResponse.text.c_str());
         l_session->close(upstreamResponse.status_code, upstreamResponse.text);
         // l_session->close(OK, "complete.");
-        l_session->erase();
     });
 }
 
