@@ -1,0 +1,5 @@
+"cpp_version" : 17,
+"libs_shared": [
+  "restbed",
+  "cpr"
+],
