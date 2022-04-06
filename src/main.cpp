@@ -90,7 +90,7 @@ int main(const int, const char**)
     settings->set_default_header("Connection", "close");
 
     Service service;
-    service.forward(forward);
+    service.publish(forward);
     service.start(settings);
 
     return EXIT_SUCCESS;
