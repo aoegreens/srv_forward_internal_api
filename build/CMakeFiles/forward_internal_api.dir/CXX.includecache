@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/eons/git/aoegreens/srv_forward_internal_api/inc/base64.h
+string
+-
+
+/home/eons/git/aoegreens/srv_forward_internal_api/src/main.cpp
+memory
+-
+cstdlib
+-
+restbed
+-
+cpr/cpr.h
+-
+nlohmann/json.hpp
+-
+base64.h
+/home/eons/git/aoegreens/srv_forward_internal_api/src/base64.h
+

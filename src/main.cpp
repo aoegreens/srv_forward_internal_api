@@ -45,7 +45,7 @@ Auth GetAuth(const shared_ptr< Session > session)
 
 string GetUrlFromName(string name, string port = "80")
 {
-    string ret = "http://10.4.";
+    string ret = "http://10.1.";
     string octet_3 = name.substr(1,2);
     octet_3.erase(0, min(octet_3.find_first_not_of('0'), octet_3.size()-1));
     ret += octet_3 + ".";
@@ -107,7 +107,9 @@ void forward_gpio_get(const shared_ptr< Session > session)
 
     fprintf(stdout, "Will forward request to %s\n", upstreamUrl.c_str());
 
-    session->close(OK, "ON");
+    cpr::Response upstreamResponse = cpr::Get(cpr::Url{upstreamUrl});
+
+    session->close(upstreamResponse.status_code, upstreamResponse.text);
     session->erase();
 }
 
@@ -183,22 +185,14 @@ void forward_gpio_post(const shared_ptr< Session > session)
         fprintf(stdout, "Will forward request to %s\n", upstreamUrl.c_str());
 
 
-        // cpr::Response upstreamResponse = cpr::Post(
-        //         cpr::Url(Environment::Instance().GetUpstreamURL() + "/wp-json/gf/v2/forms/1/submissions"),
-        //         cpr::Body(upstreamRequestBody.dump()),
-        //         cpr::Authentication{auth.username, auth.password},
-        //         cpr::Header{{"Content-Type", "application/json"}});
+        cpr::Response upstreamResponse = cpr::Post(
+                cpr::Url(upstreamUrl),
+                cpr::Body(upstreamRequestBody.dump()),
+                cpr::Header{{"Content-Type", "application/json"}});
 
-        // fprintf(stdout, "Got %ld:\n%s\n", upstreamResponse.status_code, upstreamResponse.text.c_str());
-//        l_session->close(upstreamResponse.status_code, upstreamResponse.text, replyHeaders); //<- we don't want to be sending raw responses back to the requester.
-        // if (upstreamResponse.status_code == 400 && upstreamResponse.text.find("You do not have access to update this package.") != std::string::npos)
-        // {
-        //     l_session->close(401, "Unauthorized.");
-        //     l_session->erase();
-        //     return;
-        // }
-        // l_session->close(upstreamResponse.status_code, "complete.");
-        l_session->close(OK, "complete.");
+        fprintf(stdout, "Got %ld:\n%s\n", upstreamResponse.status_code, upstreamResponse.text.c_str());
+        l_session->close(upstreamResponse.status_code, upstreamResponse.text);
+        // l_session->close(OK, "complete.");
         l_session->erase();
     });
 }
