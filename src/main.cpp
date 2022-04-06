@@ -46,7 +46,7 @@ Auth GetAuth(const shared_ptr< Session > session)
 string GetUrlFromName(string name, string port = "80")
 {
     string ret = "http://10.4.";
-    string octet_1 = name.substr(1,3);
+    string octet_3 = name.substr(1,3);
     octet_3.erase(0, min(octet_3.find_first_not_of('0'), octet_3.size()-1));
     ret += octet_3 + ".";
     string octet_4 = name.substr(1,3);
@@ -103,11 +103,11 @@ void forward_gpio_get(const shared_ptr< Session > session)
     }
     upstreamQuery.substr(0,upstreamQuery.size()-separator.size());
 
-    string upstreamUrl = GetUrlFromName(request->get_query_parameter("device"));
+    string upstreamUrl = GetUrlFromName(request->get_query_parameter("device")) + upstreamQuery;
 
-    fprintf(stdout, "Will forward request to %s\n", upstreamUrl + upstreamQuery);
+    fprintf(stdout, "Will forward request to %s\n", upstreamUrl.c_str());
 
-    session->close(OK, true);
+    session->close(OK, "ON");
     session->erase();
 }
 
