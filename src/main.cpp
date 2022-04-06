@@ -150,11 +150,11 @@ void forward_gpio_post(const shared_ptr< Session > session)
 int main(const int, const char**)
 {
     auto gpio_get = make_shared< Resource >();
-    gpio_get->set_path("/gpio");
+    gpio_get->set_path("/v1/gpio/get");
     gpio_get->set_method_handler("GET", forward_gpio_get);
 
     auto gpio_post = make_shared< Resource >();
-    gpio_post->set_path("/gpio");
+    gpio_post->set_path("/v1/gpio/set");
     gpio_post->set_method_handler("POST", forward_gpio_post);
 
     auto settings = make_shared< Settings >();
