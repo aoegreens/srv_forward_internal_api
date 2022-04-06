@@ -1,1 +1,0 @@
-/usr/bin/c++    -rdynamic CMakeFiles/forward_internal_api.dir/home/eons/git/aoegreens/srv_forward_internal_api/src/main.cpp.o  -o out/forward_internal_api  -lrestbed -lcpr -pthread 
