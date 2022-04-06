@@ -43,14 +43,14 @@ Auth GetAuth(const shared_ptr< Session > session)
     return ret;
 }
 
-void forward(const shared_ptr< Session > session)
+void forward_request(const shared_ptr< Session > session)
 {
     const auto request = session->get_request();
     int contentLength = request->get_header("Content-Length", 0);
 
     session->fetch(contentLength, [ request, contentLength ](const shared_ptr< Session > l_session, const Bytes & l_body)
     {
-#if 0
+#if 1
         string parameters;
         for (const auto& param : request->get_query_parameters())
         {
@@ -65,15 +65,16 @@ void forward(const shared_ptr< Session > session)
         //         cpr::Authentication{auth.username, auth.password},
         //         cpr::Header{{"Content-Type", "application/json"}});
 
-        fprintf(stdout, "Got %ld:\n%s\n", upstreamResponse.status_code, upstreamResponse.text.c_str());
+        // fprintf(stdout, "Got %ld:\n%s\n", upstreamResponse.status_code, upstreamResponse.text.c_str());
 //        l_session->close(upstreamResponse.status_code, upstreamResponse.text, replyHeaders); //<- we don't want to be sending raw responses back to the requester.
-        if (upstreamResponse.status_code == 400 && upstreamResponse.text.find("You do not have access to update this package.") != std::string::npos)
-        {
-            l_session->close(401, "Unauthorized.");
-            l_session->erase();
-            return;
-        }
-        l_session->close(upstreamResponse.status_code, "complete.");
+        // if (upstreamResponse.status_code == 400 && upstreamResponse.text.find("You do not have access to update this package.") != std::string::npos)
+        // {
+        //     l_session->close(401, "Unauthorized.");
+        //     l_session->erase();
+        //     return;
+        // }
+        // l_session->close(upstreamResponse.status_code, "complete.");
+        l_session->close(200, "complete.");
         l_session->erase();
     });
 }
@@ -82,7 +83,7 @@ int main(const int, const char**)
 {
     auto forward = make_shared< Resource >();
     forward->set_path("/forward");
-    forward->set_method_handler("POST", forward);
+    forward->set_method_handler("POST", forward_request);
 
     auto settings = make_shared< Settings >();
     settings->set_port(80);
