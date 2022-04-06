@@ -1,0 +1,58 @@
+{
+  "clear_build_path" : true,
+  "ebbs_next": [
+    {
+      "build" : "in_container",
+      "config" : {
+        "image" : "eons/img_dev-webserver",
+        "copy_env" : [
+          "docker_username",
+          "docker_password"
+        ],
+        "ebbs_next" : [
+          {
+            "clear_build_path" : false,
+            "build" : "cpp",
+            "build_in" : "build",
+            "copy" : [
+              {"../../inc/" : "inc/"},
+              {"../../src/" : "src/"}
+            ],
+            "config" : {
+              "file_name" : "entrypoint",
+              "cpp_version" : 17,
+              "libs_shared": [
+                "restbed",
+                "cpr"
+              ],
+              "ebbs_next" : [
+                {
+                  "build": "docker",
+                  "run_when" : [
+                    "release"
+                  ],
+                  "path" : "srv_infrastructure",
+                  "copy" : [
+                    {"out/" : "src/"}
+                  ],
+                  "config" : {
+                    "base_image" : "eons/img_webserver",
+                    "image_name" : "eons/srv_infrastructure",
+                    "image_os" : "debian",
+                    "entrypoint" : "/usr/local/bin/entrypoint",
+                    "also" : [
+                      "EXPOSE 80"
+                    ],
+                    "tags" : [
+                      "latest"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
