@@ -43,7 +43,75 @@ Auth GetAuth(const shared_ptr< Session > session)
     return ret;
 }
 
-void forward_request(const shared_ptr< Session > session)
+string GetUrlFromName(string name, string port = "80")
+{
+    string ret = "http://10.4.";
+    string octet_1 = name.substr(1,3);
+    octet_3.erase(0, min(octet_3.find_first_not_of('0'), octet_3.size()-1));
+    ret += octet_3 + ".";
+    string octet_4 = name.substr(1,3);
+    octet_4.erase(0, min(octet_4.find_first_not_of('0'), octet_4.size()-1));
+    ret += octet_4 + ":" + port;
+    return ret;
+}
+
+void forward_gpio_get(const shared_ptr< Session > session)
+{
+    auto request = session->get_request();
+
+#if 1
+    string parameters;
+    for (const auto& param : request->get_query_parameters())
+    {
+        parameters += "{"+param.first+" : "+param.second+"} ";
+    }
+    fprintf(stdout, "Forwarding gpio request for: {\n    %s\n}\n", parameters.c_str());
+#endif
+
+    if (!request->has_query_parameter("device"))
+    {
+        session->close(400, "You must specify a device.");
+        session->erase();
+        return;
+    }
+
+    const vector<RequiredParameter> requiredParameters = {
+        {"pin", "pin", {}, ""}, //the gpio to read.
+    };
+
+    string upstreamQuery = "?";
+    static const string separator = "&";
+    for (const auto& req : requiredParameters)
+    {
+        if (!request->has_query_parameter(req.name))
+        {
+            if (req.defaultVal.empty())
+            {
+                session->close(400, "Please specify \"" + req.name + "\"");
+                session->erase();
+                return;
+            }
+            if (req.defaultVal != "EMPTY")
+            {
+                upstreamQuery += req.upstreamKey + "=" + req.defaultVal + separator;
+            }
+        }
+        else
+        {
+            upstreamQuery += req.upstreamKey + "=" + request->get_query_parameter(req.name) + separator;
+        }
+    }
+    upstreamQuery.substr(0,upstreamQuery.size()-separator.size());
+
+    string upstreamUrl = GetUrlFromName(request->get_query_parameter("device"));
+
+    fprintf(stdout, "Will forward request to %s\n", upstreamUrl + upstreamQuery);
+
+    session->close(OK, true);
+    session->erase();
+}
+
+void forward_gpio_post(const shared_ptr< Session > session)
 {
     const auto request = session->get_request();
     int contentLength = request->get_header("Content-Length", 0);
@@ -74,23 +142,28 @@ void forward_request(const shared_ptr< Session > session)
         //     return;
         // }
         // l_session->close(upstreamResponse.status_code, "complete.");
-        l_session->close(200, "complete.");
+        l_session->close(OK, "complete.");
         l_session->erase();
     });
 }
 
 int main(const int, const char**)
 {
-    auto forward = make_shared< Resource >();
-    forward->set_path("/forward");
-    forward->set_method_handler("POST", forward_request);
+    auto gpio_get = make_shared< Resource >();
+    gpio_get->set_path("/gpio");
+    gpio_get->set_method_handler("GET", forward_gpio_get);
+
+    auto gpio_post = make_shared< Resource >();
+    gpio_post->set_path("/gpio");
+    gpio_post->set_method_handler("POST", forward_gpio_post);
 
     auto settings = make_shared< Settings >();
     settings->set_port(80);
     settings->set_default_header("Connection", "close");
 
     Service service;
-    service.publish(forward);
+    service.publish(gpio_get);
+    service.publish(gpio_post);
     service.start(settings);
 
     return EXIT_SUCCESS;
