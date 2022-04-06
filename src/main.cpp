@@ -79,7 +79,7 @@ void forward_gpio_get(const shared_ptr< Session > session)
         {"pin", "pin", {}, ""}, //the gpio to read.
     };
 
-    string upstreamQuery = "?";
+    string upstreamQuery = "/v1/gpio/get?";
     static const string separator = "&";
     for (const auto& req : requiredParameters)
     {
@@ -126,6 +126,62 @@ void forward_gpio_post(const shared_ptr< Session > session)
         }
         fprintf(stdout, "forwarding package with parameters: {\n    %s\n}\nand l_body (%d): {\n    %.*s\n}\n", parameters.c_str(), contentLength, (int) l_body.size(), l_body.data());
 #endif
+
+        char* requestJson = new char[l_body.size()];
+        sprintf(requestJson, "%.*s", (int) l_body.size(), l_body.data());
+        string jStr(requestJson);
+        json requestData = json::parse(jStr, nullptr, false);
+        if (requestData.is_discarded())
+        {
+            fprintf(stdout, "Could not parse:\n%.*s\n", (int) l_body.size(), l_body.data());
+            l_session->close(400, "Could not parse request. Please submit request as valid json.");
+            l_session->erase();
+            return;
+        }
+        delete[] requestJson;
+        const vector<RequiredParameter> requiredParameters = {
+                {"pin", "pin", {}, ""}, //the wiringPi pin to use.
+                {"state", "state", {}, ""}, //the state to set; "ON", "OFF". '"TOGGLE'.
+        };
+
+        if (!requestData.contains("device"))
+        {
+            l_session->close(400, "You must specify a device.");
+            l_session->erase();
+            return;
+        }
+
+        json upstreamRequestBody;
+        for (const auto& req : requiredParameters)
+        {
+            if (!requestData.contains(req.name))
+            {
+                if(req.defaultVal.empty())
+                {
+                    l_session->close(400, "Please specify \"" + req.name + "\"");
+                    l_session->erase();
+                    return;
+                }
+                if (req.defaultVal == "EMPTY")
+                {
+                    upstreamRequestBody[req.upstreamKey] = "";
+                }
+                else
+                {
+                    upstreamRequestBody[req.upstreamKey] = req.defaultVal;
+                }
+            }
+            else
+            {
+                upstreamRequestBody[req.upstreamKey] = requestData[req.name];
+            }
+            fprintf(stdout, "%s (%s): %s\n", req.upstreamKey.c_str(), req.name.c_str(), upstreamRequestBody[req.upstreamKey].get<string>().c_str());
+        }
+
+        string upstreamUrl = GetUrlFromName(requestData["device"]) + "/v1/gpio/set";
+
+        fprintf(stdout, "Will forward request to %s\n", upstreamUrl.c_str());
+
 
         // cpr::Response upstreamResponse = cpr::Post(
         //         cpr::Url(Environment::Instance().GetUpstreamURL() + "/wp-json/gf/v2/forms/1/submissions"),
